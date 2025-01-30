@@ -1,0 +1,71 @@
+version: '3'
+services:
+  # Unity Catalog
+  uc-server:
+    container_name: uc-server
+    build:
+      context: submodules/unitycatalog
+      dockerfile: Dockerfile
+    ports:
+      - "8088:8080"
+  uc-ui:
+    container_name: uc-ui
+    build:
+      context: submodules/unitycatalog/ui
+      dockerfile: Dockerfile
+      args:
+        PROXY_HOST: uc-server
+    ports:
+      - "3000:3000"
+    depends_on:
+      - uc-server
+  # Spark
+  spark-master:
+    container_name: uc-spark-master
+    build:
+      context: dockers/spark
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    environment:
+      - SPARK_MODE=master
+      - UC_SERVER=http://uc-server:8080
+    volumes:
+      - ./log/spark-events:/opt/spark/spark-events
+      - ./app:/app
+    command: bash -c "/opt/spark/sbin/start-master.sh && tail -f /opt/spark/logs/*"
+
+  spark-worker:
+    container_name: uc-spark-worker
+    build:
+      context: dockers/spark
+      dockerfile: Dockerfile
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://uc-spark-master:7077
+      - UC_SERVER=http://uc-server:8080
+    volumes:
+      - ./log/spark-events:/opt/spark/spark-events
+      - ./app:/app
+    command: bash -c "/opt/spark/sbin/start-worker.sh spark://uc-spark-master:7077 && tail -f /opt/spark/logs/*"
+    depends_on:
+      - spark-master
+
+  spark-history:
+    container_name: uc-spark-history
+    build:
+      context: dockers/spark
+      dockerfile: Dockerfile
+    ports:
+      - "18080:18080"
+    environment:
+      - SPARK_NO_DAEMONIZE=true
+      - SPARK_HISTORY_OPTS="-Dspark.history.fs.logDirectory=/opt/spark/spark-events"
+      - SPARK_CLEANER_ENABLED=false
+      - UC_SERVER=http://uc-server:8080
+    volumes:
+      - ./log/spark-events:/opt/spark/spark-events
+    command: bash -c "/opt/spark/sbin/start-history-server.sh  && tail -f /opt/spark/logs/*"
+    depends_on:
+      - spark-master
