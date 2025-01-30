@@ -1,3 +1,4 @@
 [submodule "submodules/unitycatalog"]
 	path = submodules/unitycatalog
 	url = https://github.com/unitycatalog/unitycatalog.git
+	branch = tags/v0.2.1
