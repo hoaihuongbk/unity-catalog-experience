@@ -69,3 +69,14 @@ services:
     command: bash -c "/opt/spark/sbin/start-history-server.sh  && tail -f /opt/spark/logs/*"
     depends_on:
       - spark-master
+
+  # Trino
+  trino-server:
+    container_name: uc-trino-server
+    image: trinodb/trino:latest
+    ports:
+      - "8089:8080"
+    volumes:
+      - ./dockers/trino/etc/catalog:/etc/trino/catalog
+    depends_on:
+      - uc-server
