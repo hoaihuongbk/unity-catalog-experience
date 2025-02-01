@@ -81,3 +81,19 @@ services:
       - ./dockers/trino/etc/log.properties:/etc/trino/log.properties
     depends_on:
       - uc-server
+  # StarRocks
+  starrocks-server:
+    container_name: uc-starrocks-server
+    image: starrocks/allin1-ubuntu
+    ports:
+      - "9030:9030"
+      - "8030:8030"
+      - "8040:8040"
+    volumes:
+      - ./dockers/starrocks/setup_catalog.sh:/data/deploy/setup_catalog.sh
+#    command: >
+#      sh -c "
+#      /data/deploy/entrypoint.sh &&
+#      sh /data/deploy/setup_catalog.sh"
+    depends_on:
+      - uc-server
