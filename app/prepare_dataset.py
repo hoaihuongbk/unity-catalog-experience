@@ -13,34 +13,34 @@ def write_table(spark, df, schema_name, table_name, table_format="parquet"):
     :return:
     """
 
-    final_table_format = table_format
-    if table_format == "iceberg":
-        # Need to use uniform, write table as delta and allow to read from iceberg client
-        final_table_format = "delta"
-
     # Write data into a external location
     table_path = f"/app/data/{schema_name}/{table_name}"
-    df.write.format(final_table_format).mode("overwrite").option(
-        "mergeSchema", "true"
-    ).save(table_path)
+    (
+        df.write.format(table_format)
+        .mode("overwrite")
+        .option("mergeSchema", "true")
+        # .option("delta.minReaderVersion", "2")
+        # .option("delta.minWriterVersion", "7")
+        # .option("delta.enableIcebergCompatV2", "true")
+        # .option("delta.universalFormat.enabledFormats", "iceberg")
+        # .option("delta.columnMapping.mode", "name")
+        .save(table_path)
+    )
 
     # Create table in Unity Catalog
     spark.sql(f"""
         CREATE OR REPLACE TABLE {schema_name}.{table_name}
-        USING {final_table_format}
+        USING {table_format}
         LOCATION '{table_path}'
-    """)
+    """).show(truncate=False)
 
-    # TODO: this alter doesn't work for iceberg at this moment
-    # if table_format == "iceberg":
-    #     # Enable uniform format for iceberg
-    #     spark.sql(f"""
-    #         ALTER TABLE {schema_name}.{table_name}
-    #         SET TBLPROPERTIES (
-    #             'delta.enableIcebergCompatV2' = 'true',
-    #             'delta.universalFormat.enabledFormats' = 'iceberg'
-    #         )
-    #    """)
+    # spark.sql(f"""
+    #     OPTIMIZE {schema_name}.{table_name}
+    # """).show(truncate=False)
+    #
+    # spark.sql(f"""
+    #     DESC EXTENDED {schema_name}.{table_name}
+    # """).show(truncate=False)
 
 
 def prepare_dataset(table_format="parquet"):
@@ -114,6 +114,10 @@ if __name__ == "__main__":
         help="Table format to use",
     )
     args = parser.parse_args()
+
+    if args.table_format == "iceberg":
+        print("WARNING: iceberg is not supported yet")
+        exit(1)
 
     print("Preparing dataset...")
     prepare_dataset(table_format=args.table_format)

@@ -12,8 +12,13 @@ prepare_dataset:
 		/app/prepare_dataset.py --table-format=$(table_format);
 
 
-resync_schema:
-	@echo "Resyncing the schema with the latest version"
-	@docker exec -it uc-spark-master spark-submit \
-		--master spark://uc-spark-master:7077 \
-		/app/resync_schema.py --table-format=$(table_format);
+#resync_schema:
+#	@echo "Resyncing the schema with the latest version"
+#	@docker exec -it uc-spark-master spark-submit \
+#		--master spark://uc-spark-master:7077 \
+#		/app/resync_schema.py --table-format=$(table_format);
+
+
+clean:
+	@echo "Clean up the spark environment"
+	@docker-compose down
