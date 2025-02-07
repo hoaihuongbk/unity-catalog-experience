@@ -1,46 +1,69 @@
 from pyspark.sql.functions import *
 from pyspark.sql import SparkSession
+from lakeops import LakeOps
+from lakeops.core.engines import SparkEngine
+
+
+def get_table_storage_path(schema_name, table_name):
+    return f"/app/data/{schema_name}/{table_name}"
 
 
 def write_table(spark, df, schema_name, table_name, table_format="parquet"):
     """
     Write a DataFrame to a table in the specified table format.
-    :param spark:
-    :param df:
-    :param schema_name:
-    :param table_name:
-    :param table_format:
-    :return:
+
+    Args:
+        spark: SparkSession instance
+        df: DataFrame to write
+        schema_name: Name of the schema/database
+        table_name: Name of the table to create
+        table_format: Format to save table as ('parquet', 'delta', or 'iceberg'). Default is 'parquet'.
+
+    The function writes the DataFrame to an external location and creates a table in the catalog
+    using the specified format. For Delta and Iceberg formats, additional options are set to ensure
+    compatibility and proper functionality.
     """
 
     # Write data into a external location
-    table_path = f"/app/data/{schema_name}/{table_name}"
-    (
-        df.write.format(table_format)
-        .mode("overwrite")
-        .option("mergeSchema", "true")
-        # .option("delta.minReaderVersion", "2")
-        # .option("delta.minWriterVersion", "7")
-        # .option("delta.enableIcebergCompatV2", "true")
-        # .option("delta.universalFormat.enabledFormats", "iceberg")
-        # .option("delta.columnMapping.mode", "name")
-        .save(table_path)
-    )
+    table_path = get_table_storage_path(schema_name, table_name)
+
+    engine = SparkEngine(spark)
+    ops = LakeOps(engine)
+
+    # writer = df.write.mode("overwrite").option("mergeSchema", "true")
+
+    table_options = {"mergeSchema": "true"}
+    # if table_format == "delta":
+    #     table_options = {
+    #         "delta.minReaderVersion": "2",
+    #         "delta.minWriterVersion": "7",
+    #         "delta.columnMapping.mode": "name",
+    #     }
+
+    ops.write(df, table_path, format=table_format, options=table_options)
+
+    # Write the data to the table
+    # writer.format(table_format).save(table_path)
 
     # Create table in Unity Catalog
     spark.sql(f"""
         CREATE OR REPLACE TABLE {schema_name}.{table_name}
         USING {table_format}
         LOCATION '{table_path}'
-    """).show(truncate=False)
+    """)
+
+    # List the files in the Delta table
+    # List all tables in the demo_delta schema
+    # First verify the table format
+    # spark.sql("SHOW CREATE TABLE unity.demo_delta.transactions").show(truncate=False)
 
     # spark.sql(f"""
     #     OPTIMIZE {schema_name}.{table_name}
     # """).show(truncate=False)
     #
-    # spark.sql(f"""
-    #     DESC EXTENDED {schema_name}.{table_name}
-    # """).show(truncate=False)
+    spark.sql(f"""
+        DESC EXTENDED {schema_name}.{table_name}
+    """).show(truncate=False)
 
 
 def prepare_dataset(table_format="parquet"):
@@ -116,7 +139,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.table_format == "iceberg":
-        print("WARNING: iceberg is not supported yet")
+        print("WARNING: iceberg is not supported natively yet")
         exit(1)
 
     print("Preparing dataset...")

@@ -1,2 +1,5 @@
 /app/spark-warehouse/
 /app/data/
+/.venv/
+/uv.lock
+/app/pyspark_venv.tar.gz
